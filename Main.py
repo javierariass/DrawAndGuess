@@ -1,6 +1,7 @@
 import pygame
 import sys
 import math
+import numpy as np
 
 # Inicializar Pygame
 pygame.init()
@@ -20,8 +21,9 @@ RED = (200, 0, 0)
 # Fuente
 font = pygame.font.SysFont(None, 36)
 
-# Palabra objetivo
-target_word = "Cuadrado"
+# Palabras objetivo
+target_words = ["Cuadrado", "Casa", "Árbol", "Estrella", "Corazón"]
+target_word = np.random.choice(target_words)
 
 # Lista de puntos
 points = []
@@ -34,54 +36,93 @@ def draw_button():
     text = font.render("Revisar", True, WHITE)
     screen.blit(text, (button_rect.x + 20, button_rect.y + 5))
 
-def draw_points():
-    for point in points:
-        pygame.draw.circle(screen, BLACK, point, 5)
-    if len(points) > 1:
-        pygame.draw.lines(screen, BLUE, False, points, 2)
+def interpolate_points(points):
+    if len(points) < 2:
+        return points
+    
+    # Crear una lista para los puntos interpolados
+    interpolated = []
+    
+    # Interpolación cuadrática entre puntos
+    for i in range(len(points) - 1):
+        x1, y1 = points[i]
+        x2, y2 = points[i + 1]
+        
+        # Punto de control en el medio con un poco de curvatura
+        cx = (x1 + x2) / 2 
+        cy = (y1 + y2) / 2
+        
+        # Ajustar la curvatura basada en la posición relativa
+        if i < len(points) - 2:
+            x3, y3 = points[i + 2]
+            cx += (y2 - y3) * 0.2
+            cy += (x3 - x2) * 0.2
+        
+        # Generar puntos intermedios usando curva cuadrática de Bézier
+        for t in np.linspace(0, 1, num=20):
+            xt = (1-t)**2 * x1 + 2*(1-t)*t*cx + t**2*x2
+            yt = (1-t)**2 * y1 + 2*(1-t)*t*cy + t**2*y2
+            interpolated.append((xt, yt))
+    
+    return interpolated
 
+def draw_points():
+    if len(points) > 0:
+        # Dibujar los puntos originales como círculos pequeños
+        for point in points:
+            pygame.draw.circle(screen, BLUE, (int(point[0]), int(point[1])), 5)
+        
+        # Dibujar líneas suavizadas si hay suficientes puntos
+        if len(points) >= 2:
+            interpolated = interpolate_points(points)
+            if len(interpolated) > 1:
+                pygame.draw.lines(screen, RED, False, [(int(x), int(y)) for x, y in interpolated], 3)
+
+def check_shape():
+    if len(points) < 3:
+        return False
+    
+    # Aquí la logica de revision, se retorna true para testear 
+    return True
 
 def show_result(success):
-    msg = "¡Correcto!" if success else "Intenta otra vez"
     color = GREEN if success else RED
-    text = font.render(msg, True, color)
-    screen.blit(text, (20, HEIGHT - 50))
+    message = "¡Correcto!" if success else "Intenta de nuevo"
+    
+    pygame.draw.rect(screen, color, (WIDTH//2 - 150, HEIGHT//2 - 50, 300, 100))
+    text = font.render(message, True, WHITE)
+    screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
+    
+    pygame.display.flip()
+    pygame.time.wait(2000)
 
-# Bucle principal
+# Bucle principal del juego
 running = True
-result = None
-
 while running:
     screen.fill(WHITE)
-
+    
     # Mostrar palabra objetivo
-    word_text = font.render(f"Dibuja: {target_word}", True, BLACK)
-    screen.blit(word_text, (20, 20))
-
-    draw_points()
-    draw_button()
-
-    if result is not None:
-        show_result(result)
-
+    text = font.render(f"Dibuja: {target_word}", True, BLACK)
+    screen.blit(text, (20, 20))
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
-        # Clic del mouse
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            x, y = pygame.mouse.get_pos()
-            if button_rect.collidepoint(x, y):
-                result = False # Aqui debo crear funcion para revisar que este correcta la figura
-            else:
-                points.append((x, y))
-
-        # Tecla R para reiniciar
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_r:
-                points = []
-                result = None
-
+        
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  
+                pos = pygame.mouse.get_pos()
+                if button_rect.collidepoint(pos):
+                    success = check_shape()
+                    show_result(success)
+                    points = []  
+                    target_word = np.random.choice(target_words)  
+                else:
+                    points.append(pos)
+        
+    draw_points()
+    draw_button()
+    
     pygame.display.flip()
 
 pygame.quit()
