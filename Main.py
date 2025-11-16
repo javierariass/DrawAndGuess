@@ -1,7 +1,8 @@
 import pygame
 import sys
-import math
+from functions.aux_functions import interpolate_points
 import numpy as np
+
 
 # Inicializar Pygame
 pygame.init()
@@ -15,62 +16,37 @@ pygame.display.set_caption("Juego de Interpolación")
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BLUE = (0, 120, 255)
-GREEN = (0, 200, 0)
+GREEN = (0, 200,  0)
 RED = (200, 0, 0)
 
 # Fuente
 font = pygame.font.SysFont(None, 36)
 
-# Palabras objetivo
-target_words = ["Cuadrado", "Casa", "Árbol", "Estrella", "Corazón"]
-target_word = np.random.choice(target_words)
-
 # Lista de puntos
 points = []
 
-# Botón revisar
-button_rect = pygame.Rect(WIDTH - 150, HEIGHT - 60, 120, 40)
+# Botón Continuar
+button_rect_continuar = pygame.Rect(WIDTH - 460, HEIGHT - 80, 150, 40)
 
-def draw_button():
-    pygame.draw.rect(screen, GREEN, button_rect)
+def draw_button_continuar():
+    pygame.draw.rect(screen, GREEN, button_rect_continuar)
+    text = font.render("Continuar", True, WHITE)
+    screen.blit(text, (button_rect_continuar.x + 20, button_rect_continuar.y + 5))
+
+# Botón Revisar
+button_rect_revisar = pygame.Rect(WIDTH - 460, HEIGHT - 80, 130, 40)
+
+def draw_button_revisar():
+    pygame.draw.rect(screen, GREEN, button_rect_revisar)
     text = font.render("Revisar", True, WHITE)
-    screen.blit(text, (button_rect.x + 20, button_rect.y + 5))
-
-def interpolate_points(points):
-    if len(points) < 2:
-        return points
-    
-    # Crear una lista para los puntos interpolados
-    interpolated = []
-    
-    # Interpolación cuadrática entre puntos
-    for i in range(len(points) - 1):
-        x1, y1 = points[i]
-        x2, y2 = points[i + 1]
-        
-        # Punto de control en el medio con un poco de curvatura
-        cx = (x1 + x2) / 2 
-        cy = (y1 + y2) / 2
-        
-        # Ajustar la curvatura basada en la posición relativa
-        if i < len(points) - 2:
-            x3, y3 = points[i + 2]
-            cx += (y2 - y3) * 0.2
-            cy += (x3 - x2) * 0.2
-        
-        # Generar puntos intermedios usando curva cuadrática de Bézier
-        for t in np.linspace(0, 1, num=20):
-            xt = (1-t)**2 * x1 + 2*(1-t)*t*cx + t**2*x2
-            yt = (1-t)**2 * y1 + 2*(1-t)*t*cy + t**2*y2
-            interpolated.append((xt, yt))
-    
-    return interpolated
+    screen.blit(text, (button_rect_revisar.x + 20, button_rect_revisar.y + 5))
 
 def draw_points():
     if len(points) > 0:
         # Dibujar los puntos originales como círculos pequeños
-        for point in points:
-            pygame.draw.circle(screen, BLUE, (int(point[0]), int(point[1])), 5)
+        if(fase == "Dibujo"):
+            for point in points:
+                 pygame.draw.circle(screen, BLUE, (int(point[0]), int(point[1])), 5)
         
         # Dibujar líneas suavizadas si hay suficientes puntos
         if len(points) >= 2:
@@ -78,52 +54,126 @@ def draw_points():
             if len(interpolated) > 1:
                 pygame.draw.lines(screen, RED, False, [(int(x), int(y)) for x, y in interpolated], 3)
 
-def check_shape():
-    if len(points) < 3:
+def check(target_word,player_word):   
+    if(target_word.upper() == player_word.upper()):
+        return True
+    else:
         return False
-    
-    # Aquí la logica de revision, se retorna true para testear 
-    return True
+                        
 
-def show_result(success):
+def show_result(success,life):
     color = GREEN if success else RED
-    message = "¡Correcto!" if success else "Intenta de nuevo"
+    message = "¡Correcto!" if success else "Intenta de nuevo. Quedan " + str(life) + " intentos"
     
-    pygame.draw.rect(screen, color, (WIDTH//2 - 150, HEIGHT//2 - 50, 300, 100))
+    if life == 0:
+        message = "Perdiste. Vuelvan a empezar."
+        
+    pygame.draw.rect(screen, color, (WIDTH - 850, HEIGHT//2 - 50, 880, 100))
     text = font.render(message, True, WHITE)
     screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
     
     pygame.display.flip()
-    pygame.time.wait(2000)
+    pygame.time.wait(3000)
+
+# Variables del juego
+Initial_points = 5
+Rest_points = 5
+time = 60
+clock = pygame.time.Clock()
+life = 3
+fase = "Dibujo"
+target_words = ["Cuadrado", "Casa", "Arbol", "Estrella", "Corazon"]
+target_word = np.random.choice(target_words)
+player_word = ""
+TIMER_EVENT = pygame.USEREVENT + 1
+pygame.time.set_timer(TIMER_EVENT,1000)
 
 # Bucle principal del juego
 running = True
 while running:
     screen.fill(WHITE)
-    
-    # Mostrar palabra objetivo
-    text = font.render(f"Dibuja: {target_word}", True, BLACK)
-    screen.blit(text, (20, 20))
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:  
-                pos = pygame.mouse.get_pos()
-                if button_rect.collidepoint(pos):
-                    success = check_shape()
-                    show_result(success)
-                    points = []  
-                    target_word = np.random.choice(target_words)  
-                else:
-                    points.append(pos)
-        
+    text = font.render(f"{time}", True, BLACK)
+    screen.blit(text, (390, 25))
     draw_points()
-    draw_button()
     
+    if(fase == "Dibujo"):
+        # Mostrar palabra objetivo
+        text = font.render(f"Dibuja: {target_word}", True, BLACK)
+        screen.blit(text, (20, 20))
+        text = font.render(f"Puntos restantes: {Rest_points}", True, BLACK)
+        screen.blit(text, (540, 20))
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == TIMER_EVENT:
+                time-= 1
+                if(time == 0):
+                    time = 120
+                    fase = "Adivinar"
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  
+                    pos = pygame.mouse.get_pos()
+                    if button_rect_continuar.collidepoint(pos):
+                        fase = "Adivinar"
+                        time = 120
+                    elif Rest_points > 0:
+                        points.append(pos)
+                        Rest_points -= 1
+                
+        draw_button_continuar()
+    
+    elif fase == "Adivinar":
+        texto = player_word
+        while len(texto) < len(target_word):
+            texto += "_"
+        
+        text = font.render(f"Letras Restantes: {len(target_word)-len(player_word)}", True, BLACK)
+        screen.blit(text, (20, 20))
+        
+        text = font.render(f"Palabra: {texto}", True, BLACK)
+        screen.blit(text, (20, 50))
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == TIMER_EVENT:
+                time-= 1
+                if(time == 0):
+                    time = 60
+                    fase = "Dibujo"
+                    life = 3
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  
+                    pos = pygame.mouse.get_pos()
+                    if button_rect_revisar.collidepoint(pos):
+                        result = check(target_word,player_word)
+                        if not result:
+                            life -=1
+                            player_word = ""
+                        show_result(result,life)
+                        if result:
+                            target_word = np.random.choice(target_words)  
+                            time = 60
+                            Initial_points = int(time / 10 + life + Rest_points) # Ajustar esto de los puntos
+                            Rest_points += Initial_points
+                            fase = "Dibujo"
+        
+                        if life == 0:
+                            fase = "Dibujo"
+                            Initial_points = 5
+                            Rest_points = 5
+                            time = 60
+            elif event.type == pygame.KEYDOWN:
+                if len(target_word) - len(player_word) > 0:
+                     letra = event.unicode.upper()
+                     player_word += letra
+        
+        text = ""
+      
+        draw_button_revisar()
     pygame.display.flip()
+    clock.tick(60)
 
 pygame.quit()
 sys.exit()
