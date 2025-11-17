@@ -10,7 +10,7 @@ pygame.init()
 # Configuración de pantalla
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Juego de Interpolación")
+pygame.display.set_caption("DrawAndGuess")
 
 # Colores
 WHITE = (255, 255, 255)
@@ -41,7 +41,31 @@ def draw_button_revisar():
     text = font.render("Revisar", True, WHITE)
     screen.blit(text, (button_rect_revisar.x + 20, button_rect_revisar.y + 5))
 
-def draw_points():
+# Botón Jugar
+button_rect_jugar = pygame.Rect(WIDTH - 480, HEIGHT - 350, 160, 60)
+
+def draw_button_jugar():
+    pygame.draw.rect(screen, GREEN, button_rect_jugar)
+    text = font.render("Iniciar", True, WHITE)
+    screen.blit(text, (button_rect_jugar.x + 50, button_rect_jugar.y + 16))
+
+# Botón Bezier
+button_rect_Bezier = pygame.Rect(WIDTH - 480, HEIGHT - 350, 160, 60)
+
+def draw_button_Bezier():
+    pygame.draw.rect(screen, GREEN, button_rect_Bezier)
+    text = font.render("Bezier", True, WHITE)
+    screen.blit(text, (button_rect_Bezier.x + 50, button_rect_Bezier.y + 16))
+
+# Botón Polinomio
+button_rect_Polinomio = pygame.Rect(WIDTH - 480, HEIGHT - 250, 160, 60)
+
+def draw_button_Polinomio():
+    pygame.draw.rect(screen, GREEN, button_rect_Polinomio)
+    text = font.render("Polinomio", True, WHITE)
+    screen.blit(text, (button_rect_Polinomio.x + 30, button_rect_Polinomio.y + 16))
+
+def draw_points(metodo):
     if len(points) > 0:
         # Dibujar los puntos originales como círculos pequeños
         if(fase == "Dibujo"):
@@ -50,7 +74,7 @@ def draw_points():
         
         # Dibujar líneas suavizadas si hay suficientes puntos
         if len(points) >= 2:
-            interpolated = interpolate_points(points)
+            interpolated = interpolate_points(points,metodo)
             if len(interpolated) > 1:
                 pygame.draw.lines(screen, RED, False, [(int(x), int(y)) for x, y in interpolated], 3)
 
@@ -81,10 +105,11 @@ Rest_points = 5
 time = 60
 clock = pygame.time.Clock()
 life = 3
-fase = "Dibujo"
+fase = "Menu"
 target_words = ["Cuadrado", "Casa", "Arbol", "Estrella", "Corazon"]
 target_word = np.random.choice(target_words)
 player_word = ""
+metodo = "Polinomio"
 TIMER_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(TIMER_EVENT,1000)
 
@@ -92,11 +117,51 @@ pygame.time.set_timer(TIMER_EVENT,1000)
 running = True
 while running:
     screen.fill(WHITE)
-    text = font.render(f"{time}", True, BLACK)
-    screen.blit(text, (390, 25))
-    draw_points()
+    if(fase != "Menu" and fase != "Interpolar"):
+        text = font.render(f"{time}", True, BLACK)
+        screen.blit(text, (390, 25))
+        draw_points(metodo)
     
-    if(fase == "Dibujo"):
+    if(fase == "Menu"):
+        draw_button_jugar()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  
+                    pos = pygame.mouse.get_pos()
+                    if button_rect_jugar.collidepoint(pos):
+                        fase = "Interpolar"
+                        
+    elif(fase == "Interpolar"):
+        draw_button_Bezier()
+        draw_button_Polinomio()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  
+                    pos = pygame.mouse.get_pos()
+                    if button_rect_Bezier.collidepoint(pos):
+                        fase = "Dibujo"
+                        time = 60
+                        Rest_points = 5
+                        life = 3
+                        target_word = np.random.choice(target_words)
+                        player_word = ""
+                        points = []
+                        metodo = "Bezier"
+                    if button_rect_Polinomio.collidepoint(pos):
+                        fase = "Dibujo"
+                        time = 60
+                        Rest_points = 5
+                        life = 3
+                        target_word = np.random.choice(target_words)
+                        player_word = ""
+                        points = []
+                        metodo = "Polinomio"
+    elif(fase == "Dibujo"):
         # Mostrar palabra objetivo
         text = font.render(f"Dibuja: {target_word}", True, BLACK)
         screen.blit(text, (20, 20))
@@ -120,6 +185,10 @@ while running:
                     elif Rest_points > 0:
                         points.append(pos)
                         Rest_points -= 1
+                elif event.button == 3:
+                    if len(points) > 0:
+                         points.pop()
+                         Rest_points += 1
                 
         draw_button_continuar()
     
@@ -155,8 +224,10 @@ while running:
                         if result:
                             target_word = np.random.choice(target_words)  
                             time = 60
-                            Initial_points = int(time / 10 + life + Rest_points) # Ajustar esto de los puntos
+                            Initial_points = int(time / 20 + life) # Ajustar esto de los puntos
                             Rest_points += Initial_points
+                            if Rest_points < 5:
+                                Rest_points = 5
                             fase = "Dibujo"
         
                         if life == 0:
@@ -168,6 +239,8 @@ while running:
                 if len(target_word) - len(player_word) > 0:
                      letra = event.unicode.upper()
                      player_word += letra
+                if(event.key == pygame.K_BACKSPACE):
+                    player_word = player_word[:-2]
         
         text = ""
       
